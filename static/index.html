@@ -3,8 +3,9 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Winmau Autodarts Lens - Vision Dartboard System</title>
+  <title>Winmau Autodarts Lens - Vision & Diagnostics Dashboard</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
     body {
       background-color: #121212;
@@ -62,25 +63,36 @@
     }
     .dartboard-visualizer {
       position: relative;
-      width: 300px;
-      height: 300px;
+      width: 320px;
+      height: 320px;
       margin: 0 auto;
       border-radius: 50%;
       background: radial-gradient(circle, #222 0%, #111 100%);
       border: 6px solid #444;
     }
-    .dart-hit {
-      position: absolute;
-      width: 12px;
-      height: 12px;
-      background-color: #ffeb3b;
-      border: 2px solid #d32f2f;
-      border-radius: 50%;
-      transform: translate(-50%, -50%);
-    }
     .badge-turn {
       font-size: 1.2rem;
       margin-right: 5px;
+    }
+    .nav-tabs .nav-link {
+      color: #aaa;
+    }
+    .nav-tabs .nav-link.active {
+      background-color: #1e1e1e;
+      color: #fff;
+      border-color: #444 #444 #1e1e1e;
+    }
+    .stat-box {
+      background-color: #252525;
+      padding: 15px;
+      border-radius: 6px;
+      text-align: center;
+      border: 1px solid #3d3d3d;
+    }
+    .stat-value {
+      font-size: 1.8rem;
+      font-weight: bold;
+      color: #2196f3;
     }
   </style>
 </head>
@@ -89,102 +101,206 @@
   <nav class="navbar navbar-dark">
     <div class="container-fluid">
       <span class="navbar-brand mb-0 h1">🎯 Winmau Autodarts Lens Clone</span>
-      <span class="badge bg-danger">LIVE VISION ENGINE</span>
+      <span class="badge bg-danger">LIVE VISION & ANALYTICS DASHBOARD</span>
     </div>
   </nav>
 
-  <div class="container-fluid mt-4">
-    <div class="row">
+  <div class="container-fluid mt-3">
 
-      <!-- Left Column: Camera / Calibration / Test Upload -->
-      <div class="col-lg-6">
-        <div class="card">
-          <div class="card-header d-flex justify-content-between align-items-center">
-            <span>📹 Podgląd Kamery i Kalibracja Tarczy</span>
-            <div>
-              <button class="btn btn-sm btn-outline-warning" id="btnStartCamera">Start Kamera</button>
-              <button class="btn btn-sm btn-outline-info" id="btnResetCalib">Reset Kalibracji</button>
-            </div>
-          </div>
-          <div class="card-body text-center">
-            <p class="small text-warning">Instrukcja kalibracji: Kliknij po kolei 4 punkty na obrazie: <strong>1. Szczyt D20, 2. Prawa D6, 3. Dół D3, 4. Lewa D11</strong>.</p>
-            <div id="videoOverlayContainer">
-              <video id="webcamVideo" autoplay playsinline muted></video>
-              <canvas id="calibCanvas"></canvas>
-            </div>
-            <div class="mt-3">
-              <button class="btn btn-success me-2" id="btnCaptureThrow">🎯 Wykryj Rzut (Klatka Po)</button>
-              <button class="btn btn-secondary" id="btnCaptureBefore">📸 Ustaw Klatkę Odniesienia (Przed)</button>
-            </div>
-          </div>
-        </div>
+    <!-- Navigation Tabs -->
+    <ul class="nav nav-tabs mb-3" id="dashTabs">
+      <li class="nav-item">
+        <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#gameTab">🎮 Gra & Kamera Live</button>
+      </li>
+      <li class="nav-item">
+        <button class="nav-link" data-bs-toggle="tab" data-bs-target="#analyticsTab" id="btnLoadAnalytics">📊 Zaawansowana Analityka & Diagnostyka Wizji</button>
+      </li>
+    </ul>
 
-        <div class="card">
-          <div class="card-header">🧪 Tryb Testowy - Wgraj Zdjęcia (Przed / Po)</div>
-          <div class="card-body">
-            <form id="uploadTestForm">
-              <div class="mb-2">
-                <label class="form-label small">Zdjęcie tarczy przed rzutem:</label>
-                <input type="file" class="form-control form-control-sm" id="fileBefore" accept="image/*" required>
+    <div class="tab-content">
+
+      <!-- TAB 1: Game & Camera -->
+      <div class="tab-pane fade show active" id="gameTab">
+        <div class="row">
+
+          <!-- Left Column: Camera / Calibration / Test Upload -->
+          <div class="col-lg-6">
+            <div class="card">
+              <div class="card-header d-flex justify-content-between align-items-center">
+                <span>📹 Podgląd Kamery i Kalibracja Tarczy</span>
+                <div>
+                  <button class="btn btn-sm btn-outline-warning" id="btnStartCamera">Start Kamera</button>
+                  <button class="btn btn-sm btn-outline-info" id="btnResetCalib">Reset Kalibracji</button>
+                </div>
               </div>
-              <div class="mb-2">
-                <label class="form-label small">Zdjęcie tarczy po rzucie:</label>
-                <input type="file" class="form-control form-control-sm" id="fileAfter" accept="image/*" required>
+              <div class="card-body text-center">
+                <p class="small text-warning">Instrukcja kalibracji: Kliknij po kolei 4 punkty na obrazie: <strong>1. Szczyt D20, 2. Prawa D6, 3. Dół D3, 4. Lewa D11</strong>.</p>
+                <div id="videoOverlayContainer">
+                  <video id="webcamVideo" autoplay playsinline muted></video>
+                  <canvas id="calibCanvas"></canvas>
+                </div>
+                <div class="mt-3">
+                  <button class="btn btn-success me-2" id="btnCaptureThrow">🎯 Wykryj Rzut (Klatka Po)</button>
+                  <button class="btn btn-secondary" id="btnCaptureBefore">📸 Ustaw Klatkę Odniesienia (Przed)</button>
+                </div>
               </div>
-              <button type="submit" class="btn btn-primary btn-sm w-100">Przetwarzaj Zdjęcia Testowe</button>
-            </form>
+            </div>
+
+            <div class="card">
+              <div class="card-header">🧪 Tryb Testowy - Wgraj Zdjęcia (Przed / Po)</div>
+              <div class="card-body">
+                <form id="uploadTestForm">
+                  <div class="mb-2">
+                    <label class="form-label small">Zdjęcie tarczy przed rzutem:</label>
+                    <input type="file" class="form-control form-control-sm" id="fileBefore" accept="image/*" required>
+                  </div>
+                  <div class="mb-2">
+                    <label class="form-label small">Zdjęcie tarczy po rzucie:</label>
+                    <input type="file" class="form-control form-control-sm" id="fileAfter" accept="image/*" required>
+                  </div>
+                  <button type="submit" class="btn btn-primary btn-sm w-100">Przetwarzaj Zdjęcia Testowe</button>
+                </form>
+              </div>
+            </div>
           </div>
+
+          <!-- Right Column: Game State & Interactive Board -->
+          <div class="col-lg-6">
+            <div class="card">
+              <div class="card-header d-flex justify-content-between align-items-center">
+                <span>🎮 Stan Gry X01</span>
+                <button class="btn btn-sm btn-outline-success" data-bs-toggle="modal" data-bs-target="#newGameModal">Nowa Gra</button>
+              </div>
+              <div class="card-body">
+                <div id="gameContainer">
+                  <div class="row" id="playersList"></div>
+
+                  <div class="text-center my-3">
+                    <div class="small text-muted">Asekuracja / Rekomendacja checkout:</div>
+                    <div class="h4 text-warning" id="checkoutSuggest">-</div>
+                  </div>
+
+                  <div class="text-center my-2">
+                    <h5>Rzuty w tej kolejce:</h5>
+                    <div id="currentTurnDarts">
+                      <span class="badge bg-secondary badge-turn">-</span>
+                      <span class="badge bg-secondary badge-turn">-</span>
+                      <span class="badge bg-secondary badge-turn">-</span>
+                    </div>
+                  </div>
+
+                  <div class="d-flex justify-content-center gap-2 mt-3">
+                    <button class="btn btn-danger btn-sm" id="btnUndo">↩ Cofnij Rzut</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Manual Throw input for testing -->
+            <div class="card">
+              <div class="card-header">🎯 Ręczne Wprowadzanie Wyniku</div>
+              <div class="card-body">
+                <div class="input-group">
+                  <input type="text" id="manualInput" class="form-control" placeholder="np. T20, D16, S5, 25, 50">
+                  <button class="btn btn-primary" id="btnManualThrow">Dodaj Rzut</button>
+                </div>
+              </div>
+            </div>
+
+            <div class="card text-center">
+              <div class="card-header">Wizualizacja Tarczy</div>
+              <div class="card-body">
+                <div class="dartboard-visualizer" id="dartboardViz"></div>
+              </div>
+            </div>
+
+          </div>
+
         </div>
       </div>
 
-      <!-- Right Column: Game State & Interactive Dartboard -->
-      <div class="col-lg-6">
-        <div class="card">
-          <div class="card-header d-flex justify-content-between align-items-center">
-            <span>🎮 Stan Gry X01</span>
-            <button class="btn btn-sm btn-outline-success" data-bs-toggle="modal" data-bs-target="#newGameModal">Nowa Gra</button>
+      <!-- TAB 2: Advanced Analytics & Vision Diagnostics -->
+      <div class="tab-pane fade" id="analyticsTab">
+        <div class="row">
+
+          <!-- Key Metrics -->
+          <div class="col-md-3 mb-3">
+            <div class="stat-box">
+              <div class="small fw-bold" style="color: #b0bec5;">Średnia Ogólna (3 Darts)</div>
+              <div class="stat-value" id="statOverallAvg">0.0</div>
+            </div>
           </div>
-          <div class="card-body">
-            <div id="gameContainer">
-              <div class="row" id="playersList"></div>
+          <div class="col-md-3 mb-3">
+            <div class="stat-box">
+              <div class="small fw-bold" style="color: #b0bec5;">Średnia Pierwsze 9 Rzutów</div>
+              <div class="stat-value" id="statFirst9Avg">0.0</div>
+            </div>
+          </div>
+          <div class="col-md-3 mb-3">
+            <div class="stat-box">
+              <div class="small fw-bold" style="color: #b0bec5;">Skuteczność Checkout (Doubles)</div>
+              <div class="stat-value" id="statCheckoutPct">0%</div>
+            </div>
+          </div>
+          <div class="col-md-3 mb-3">
+            <div class="stat-box">
+              <div class="small fw-bold" style="color: #b0bec5;">Przesunięcie Kierunkowe (Drift)</div>
+              <div class="stat-value" id="statDrift">0.0 mm</div>
+            </div>
+          </div>
 
-              <div class="text-center my-3">
-                <div class="small text-muted">Asekuracja / Rekomendacja checkout:</div>
-                <div class="h4 text-warning" id="checkoutSuggest">-</div>
+        </div>
+
+        <div class="row">
+          <!-- Scoring Brackets Chart -->
+          <div class="col-lg-6">
+            <div class="card">
+              <div class="card-header">📊 Rozkład Wyników Kolejek (Scoring Brackets)</div>
+              <div class="card-body">
+                <canvas id="bracketsChart" height="200"></canvas>
               </div>
+            </div>
+          </div>
 
-              <div class="text-center my-2">
-                <h5>Rzuty w tej kolejce:</h5>
-                <div id="currentTurnDarts">
-                  <span class="badge bg-secondary badge-turn">-</span>
-                  <span class="badge bg-secondary badge-turn">-</span>
-                  <span class="badge bg-secondary badge-turn">-</span>
+          <!-- Heatmap Canvas Visualization -->
+          <div class="col-lg-6">
+            <div class="card">
+              <div class="card-header">🔥 Mapa Ciepła i Rozrzut Rzutów (Scatter Coordinates)</div>
+              <div class="card-body text-center">
+                <canvas id="heatmapCanvas" width="300" height="300" style="background:#111; border-radius:50%; border:4px solid #444;"></canvas>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="row">
+          <!-- Vision Engine Diagnostics -->
+          <div class="col-lg-12">
+            <div class="card">
+              <div class="card-header">🔍 Diagnostyka Kamery i Wydajności Silnika Wizji</div>
+              <div class="card-body">
+                <div class="row text-center">
+                  <div class="col-md-4">
+                    <div class="p-2 border rounded bg-dark">
+                      <div class="small text-muted">Średnie Opóźnienie Detekcji (Latency)</div>
+                      <div class="h4 text-info" id="diagLatency">0 ms</div>
+                    </div>
+                  </div>
+                  <div class="col-md-4">
+                    <div class="p-2 border rounded bg-dark">
+                      <div class="small text-muted">Intensywność Różnicowa Klatek (Diff Energy)</div>
+                      <div class="h4 text-warning" id="diagDiff">0.0</div>
+                    </div>
+                  </div>
+                  <div class="col-md-4">
+                    <div class="p-2 border rounded bg-dark">
+                      <div class="small text-muted">Skuteczność Przetworzonych Klatek</div>
+                      <div class="h4 text-success" id="diagSuccess">0%</div>
+                    </div>
+                  </div>
                 </div>
               </div>
-
-              <div class="d-flex justify-content-center gap-2 mt-3">
-                <button class="btn btn-danger btn-sm" id="btnUndo">↩ Cofnij Rzut</button>
-              </div>
             </div>
-          </div>
-        </div>
-
-        <!-- Manual Throw input for testing -->
-        <div class="card">
-          <div class="card-header">🎯 Ręczne Wprowadzanie Wyniku</div>
-          <div class="card-body">
-            <div class="input-group">
-              <input type="text" id="manualInput" class="form-control" placeholder="np. T20, D16, S5, 25, 50">
-              <button class="btn btn-primary" id="btnManualThrow">Dodaj Rzut</button>
-            </div>
-          </div>
-        </div>
-
-        <!-- Interactive Virtual Board -->
-        <div class="card text-center">
-          <div class="card-header">Wizualizacja Tarczy</div>
-          <div class="card-body">
-            <div class="dartboard-visualizer" id="dartboardViz"></div>
           </div>
         </div>
 
@@ -232,6 +348,7 @@
     let canvas = document.getElementById('calibCanvas');
     let ctx = canvas.getContext('2d');
     let ws = null;
+    let bracketsChartInstance = null;
 
     function initWebSocket() {
       const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
@@ -270,15 +387,12 @@
       drawCalibOverlay();
 
       if (calibPoints.length === 4) {
-        // Send calibration to server
         fetch('/api/calibration/set', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ points: calibPoints })
         }).then(r => r.json()).then(data => {
-          if (data.calibrated) {
-            alert('Tarcza pomyślnie skalibrowana!');
-          }
+          if (data.calibrated) alert('Tarcza pomyślnie skalibrowana!');
         });
       }
     });
@@ -342,7 +456,6 @@
       }
     });
 
-    // Test Image Form
     document.getElementById('uploadTestForm').addEventListener('submit', async (e) => {
       e.preventDefault();
       const before = document.getElementById('fileBefore').files[0];
@@ -353,10 +466,7 @@
       formData.append('before_file', before);
       formData.append('after_file', after);
 
-      const resp = await fetch('/api/vision/process_images', {
-        method: 'POST',
-        body: formData
-      });
+      const resp = await fetch('/api/vision/process_images', { method: 'POST', body: formData });
       const res = await resp.json();
       if (res.detected) {
         alert(`Wykryto rzut ze zdjęć: ${res.score.name} (${res.score.value} pkt)`);
@@ -366,7 +476,6 @@
       }
     });
 
-    // Game logic frontend
     document.getElementById('btnStartGame').addEventListener('click', async () => {
       const p1 = document.getElementById('player1Name').value;
       const p2 = document.getElementById('player2Name').value;
@@ -473,6 +582,78 @@
         alert(`🎉 ZWYCIĘZCA: ${state.winner}! Gratulacje!`);
       }
     }
+
+    // Load Analytics Tab Data
+    async function loadAnalyticsData() {
+      const statsResp = await fetch('/api/analytics/stats');
+      const stats = await statsResp.json();
+
+      document.getElementById('statOverallAvg').innerText = stats.overall_average_3dart;
+      document.getElementById('statFirst9Avg').innerText = stats.first_9_average;
+      document.getElementById('statCheckoutPct').innerText = `${stats.checkout_percentage}%`;
+      document.getElementById('statDrift').innerText = `${stats.directional_bias_mm.grouping_radius_mm} mm`;
+
+      // Render Brackets Chart
+      const ctxBrackets = document.getElementById('bracketsChart').getContext('2d');
+      if (bracketsChartInstance) bracketsChartInstance.destroy();
+      bracketsChartInstance = new Chart(ctxBrackets, {
+        type: 'bar',
+        data: {
+          labels: ['180', '140+', '100+', '60+', '<60'],
+          datasets: [{
+            label: 'Liczba Kolejek',
+            data: [
+              stats.scoring_brackets['180'],
+              stats.scoring_brackets['140+'],
+              stats.scoring_brackets['100+'],
+              stats.scoring_brackets['60+'],
+              stats.scoring_brackets['<60']
+            ],
+            backgroundColor: ['#f44336', '#ff9800', '#4caf50', '#2196f3', '#9e9e9e']
+          }]
+        },
+        options: {
+          responsive: true,
+          plugins: { legend: { display: false } },
+          scales: { y: { beginAtZero: true } }
+        }
+      });
+
+      // Render Heatmap / Scatter Canvas
+      const heatmapResp = await fetch('/api/analytics/heatmap');
+      const heatmapPts = await heatmapResp.json();
+      const hCanvas = document.getElementById('heatmapCanvas');
+      const hCtx = hCanvas.getContext('2d');
+      hCtx.clearRect(0, 0, 300, 300);
+
+      // Draw Bull & Rings guide
+      hCtx.strokeStyle = '#333';
+      hCtx.beginPath();
+      hCtx.arc(150, 150, 140, 0, 2 * Math.PI);
+      hCtx.arc(150, 150, 85, 0, 2 * Math.PI);
+      hCtx.arc(150, 150, 15, 0, 2 * Math.PI);
+      hCtx.stroke();
+
+      heatmapPts.forEach(pt => {
+        // Map canonical (-1 to 1) to canvas (0 to 300)
+        const px = 150 + (pt.x * 140);
+        const py = 150 - (pt.y * 140);
+
+        hCtx.fillStyle = 'rgba(255, 235, 59, 0.8)';
+        hCtx.beginPath();
+        hCtx.arc(px, py, 4, 0, 2 * Math.PI);
+        hCtx.fill();
+      });
+
+      // Vision Diagnostics
+      const diagResp = await fetch('/api/analytics/diagnostics');
+      const diag = await diagResp.json();
+      document.getElementById('diagLatency').innerText = `${diag.avg_detection_latency_ms} ms`;
+      document.getElementById('diagDiff').innerText = diag.avg_diff_intensity;
+      document.getElementById('diagSuccess').innerText = `${diag.success_rate_pct}%`;
+    }
+
+    document.getElementById('btnLoadAnalytics').addEventListener('click', loadAnalyticsData);
 
     window.onload = () => {
       initWebSocket();

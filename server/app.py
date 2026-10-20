@@ -10,6 +10,11 @@ from pydantic import BaseModel
 
 from vision import CalibrationEngine, DartDetector, ScoreResult
 from game import X01Game
+from game.database import init_db, save_match, log_dart, log_vision_diagnostic
+from analytics import AnalyticsEngine
+import time
+
+init_db()
 
 app = FastAPI(title="Winmau Autodarts Lens Clone API")
 
@@ -43,11 +48,24 @@ def get_index():
 
 @app.post("/api/game/new")
 def new_game(req: NewGameRequest):
-    global active_game
+    global active_game, current_match_id
     if not req.players:
         raise HTTPException(status_code=400, detail="Player list cannot be empty")
     active_game = X01Game(req.players, req.target_score, req.double_out)
+    current_match_id = save_match(req.target_score, req.double_out, None, req.players)
     return active_game.get_state()
+
+@app.get("/api/analytics/stats")
+def get_analytics_stats(player_name: Optional[str] = None):
+    return AnalyticsEngine.get_player_summary_stats(player_name)
+
+@app.get("/api/analytics/heatmap")
+def get_analytics_heatmap(player_name: Optional[str] = None):
+    return AnalyticsEngine.get_heatmap_data(player_name)
+
+@app.get("/api/analytics/diagnostics")
+def get_analytics_diagnostics():
+    return AnalyticsEngine.get_vision_diagnostics()
 
 @app.get("/api/game/state")
 def get_game_state():
@@ -57,11 +75,36 @@ def get_game_state():
 
 @app.post("/api/game/throw")
 def manual_throw(req: ManualThrowRequest):
-    global active_game
+    global active_game, current_match_id
     if active_game is None:
         raise HTTPException(status_code=400, detail="No active game")
     score = ScoreResult(req.name, req.multiplier, req.sector, req.value)
+
+    # Target coordinate fallback (0, 0.606 for T20, 0, 0 for Bull)
+    cx, cy = 0.0, 0.606 if req.sector == 20 else 0.0
+
+    player = active_game.current_player
     result = active_game.throw_dart(score)
+
+    if current_match_id is None:
+        current_match_id = 1
+
+    log_dart(
+        match_id=current_match_id,
+        player_name=player.name,
+        leg_number=1,
+        turn_number=(player.darts_thrown // 3) + 1,
+        dart_number_in_turn=(player.darts_thrown % 3) or 3,
+        dart_score_name=score.name,
+        multiplier=score.multiplier,
+        sector=score.sector,
+        score_value=score.value,
+        canonical_x=cx,
+        canonical_y=cy,
+        is_double_attempt=(player.current_score <= 40 and player.current_score % 2 == 0),
+        is_checkout_hit=(player.current_score == 0)
+    )
+
     return {"result": result, "state": active_game.get_state()}
 
 @app.post("/api/game/undo")
@@ -110,7 +153,26 @@ async def process_images(
     # Automatically register throw if game is active
     game_res = None
     if active_game is not None:
+        player = active_game.current_player
         game_res = active_game.throw_dart(score)
+        if current_match_id is None:
+            current_match_id = 1
+        log_dart(
+            match_id=current_match_id,
+            player_name=player.name,
+            leg_number=1,
+            turn_number=(player.darts_thrown // 3) + 1,
+            dart_number_in_turn=(player.darts_thrown % 3) or 3,
+            dart_score_name=score.name,
+            multiplier=score.multiplier,
+            sector=score.sector,
+            score_value=score.value,
+            canonical_x=cx,
+            canonical_y=cy,
+            is_double_attempt=(player.current_score <= 40 and player.current_score % 2 == 0),
+            is_checkout_hit=(player.current_score == 0),
+            detection_time_ms=duration_ms
+        )
 
     return {
         "detected": True,
