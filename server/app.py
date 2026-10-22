@@ -8,8 +8,8 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse, JSONResponse
 from pydantic import BaseModel
 
-from vision import CalibrationEngine, DartDetector, ScoreResult
-from game import X01Game
+from vision import CalibrationEngine, DartDetector, ScoreResult, auto_detect_dartboard_points
+from game import X01Game, AIBot, CricketGame, AroundTheClockGame
 from game.database import init_db, save_match, log_dart, log_vision_diagnostic
 from analytics import AnalyticsEngine
 import time
@@ -28,9 +28,17 @@ active_game: Optional[X01Game] = None
 latest_frame_before: Optional[np.ndarray] = None
 
 class NewGameRequest(BaseModel):
+    game_mode: str = "x01"  # "x01", "cricket", "around_the_clock"
     players: List[str]
     target_score: int = 501
     double_out: bool = True
+    include_bot: bool = False
+    bot_skill: str = "intermediate"
+
+ai_bot_instance: Optional[AIBot] = None
+active_cricket_game: Optional[CricketGame] = None
+active_atc_game: Optional[AroundTheClockGame] = None
+active_game_type: str = "x01"
 
 class CalibrationPointsRequest(BaseModel):
     points: List[List[float]]  # 4 points: [[x1, y1], [x2, y2], [x3, y3], [x4, y4]]
@@ -48,12 +56,50 @@ def get_index():
 
 @app.post("/api/game/new")
 def new_game(req: NewGameRequest):
-    global active_game, current_match_id
+    global active_game, active_cricket_game, active_atc_game, active_game_type, current_match_id, ai_bot_instance
     if not req.players:
         raise HTTPException(status_code=400, detail="Player list cannot be empty")
-    active_game = X01Game(req.players, req.target_score, req.double_out)
-    current_match_id = save_match(req.target_score, req.double_out, None, req.players)
-    return active_game.get_state()
+
+    player_list = list(req.players)
+    if req.include_bot:
+        ai_bot_instance = AIBot("Autodarts Bot", req.bot_skill)
+        if ai_bot_instance.name not in player_list:
+            player_list.append(ai_bot_instance.name)
+    else:
+        ai_bot_instance = None
+
+    active_game_type = req.game_mode.lower()
+
+    if active_game_type == "cricket":
+        active_cricket_game = CricketGame(player_list)
+        active_game = None
+        active_atc_game = None
+        return active_cricket_game.get_state()
+    elif active_game_type == "around_the_clock":
+        active_atc_game = AroundTheClockGame(player_list)
+        active_game = None
+        active_cricket_game = None
+        return active_atc_game.get_state()
+    else:
+        active_game_type = "x01"
+        active_game = X01Game(player_list, req.target_score, req.double_out)
+        active_cricket_game = None
+        active_atc_game = None
+        current_match_id = save_match(req.target_score, req.double_out, None, player_list)
+        return active_game.get_state()
+
+@app.post("/api/calibration/auto")
+async def auto_calibration(file: UploadFile = File(...)):
+    contents = await file.read()
+    nparr = np.frombuffer(contents, np.uint8)
+    img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+    if img is None:
+        raise HTTPException(status_code=400, detail="Invalid image")
+    pts = auto_detect_dartboard_points(img)
+    if pts is None:
+        raise HTTPException(status_code=400, detail="Could not auto-detect dartboard")
+    success = calibration_engine.set_calibration_points(pts)
+    return {"calibrated": success, "points": pts}
 
 @app.get("/api/analytics/stats")
 def get_analytics_stats(player_name: Optional[str] = None):
@@ -69,43 +115,51 @@ def get_analytics_diagnostics():
 
 @app.get("/api/game/state")
 def get_game_state():
-    if active_game is None:
-        return {"active": False}
-    return {"active": True, "state": active_game.get_state()}
+    if active_game_type == "cricket" and active_cricket_game is not None:
+        return {"active": True, "game_type": "cricket", "state": active_cricket_game.get_state()}
+    elif active_game_type == "around_the_clock" and active_atc_game is not None:
+        return {"active": True, "game_type": "around_the_clock", "state": active_atc_game.get_state()}
+    elif active_game is not None:
+        return {"active": True, "game_type": "x01", "state": active_game.get_state()}
+    return {"active": False}
 
 @app.post("/api/game/throw")
 def manual_throw(req: ManualThrowRequest):
-    global active_game, current_match_id
-    if active_game is None:
-        raise HTTPException(status_code=400, detail="No active game")
+    global active_game, active_cricket_game, active_atc_game, current_match_id
     score = ScoreResult(req.name, req.multiplier, req.sector, req.value)
 
-    # Target coordinate fallback (0, 0.606 for T20, 0, 0 for Bull)
-    cx, cy = 0.0, 0.606 if req.sector == 20 else 0.0
+    if active_game_type == "cricket" and active_cricket_game is not None:
+        result = active_cricket_game.throw_dart(score)
+        return {"result": result, "state": active_cricket_game.get_state()}
+    elif active_game_type == "around_the_clock" and active_atc_game is not None:
+        result = active_atc_game.throw_dart(score)
+        return {"result": result, "state": active_atc_game.get_state()}
+    elif active_game is not None:
+        cx, cy = 0.0, 0.606 if req.sector == 20 else 0.0
+        player = active_game.current_player
+        result = active_game.throw_dart(score)
 
-    player = active_game.current_player
-    result = active_game.throw_dart(score)
+        if current_match_id is None:
+            current_match_id = 1
 
-    if current_match_id is None:
-        current_match_id = 1
-
-    log_dart(
-        match_id=current_match_id,
-        player_name=player.name,
-        leg_number=1,
-        turn_number=(player.darts_thrown // 3) + 1,
-        dart_number_in_turn=(player.darts_thrown % 3) or 3,
-        dart_score_name=score.name,
-        multiplier=score.multiplier,
-        sector=score.sector,
-        score_value=score.value,
-        canonical_x=cx,
-        canonical_y=cy,
-        is_double_attempt=(player.current_score <= 40 and player.current_score % 2 == 0),
-        is_checkout_hit=(player.current_score == 0)
-    )
-
-    return {"result": result, "state": active_game.get_state()}
+        log_dart(
+            match_id=current_match_id,
+            player_name=player.name,
+            leg_number=1,
+            turn_number=(player.darts_thrown // 3) + 1,
+            dart_number_in_turn=(player.darts_thrown % 3) or 3,
+            dart_score_name=score.name,
+            multiplier=score.multiplier,
+            sector=score.sector,
+            score_value=score.value,
+            canonical_x=cx,
+            canonical_y=cy,
+            is_double_attempt=(player.current_score <= 40 and player.current_score % 2 == 0),
+            is_checkout_hit=(player.current_score == 0)
+        )
+        return {"result": result, "state": active_game.get_state()}
+    else:
+        raise HTTPException(status_code=400, detail="No active game")
 
 @app.post("/api/game/undo")
 def undo_throw():

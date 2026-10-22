@@ -101,13 +101,15 @@
   <nav class="navbar navbar-dark">
     <div class="container-fluid">
       <span class="navbar-brand mb-0 h1">🎯 Winmau Autodarts Lens Clone</span>
-      <span class="badge bg-danger">LIVE VISION & ANALYTICS DASHBOARD</span>
+      <div class="d-flex align-items-center gap-2">
+        <button class="btn btn-sm btn-outline-light" id="btnToggleAudio">🔊 Lektor: WŁĄCZONY</button>
+        <span class="badge bg-danger">LIVE VISION & ANALYTICS DASHBOARD</span>
+      </div>
     </div>
   </nav>
 
   <div class="container-fluid mt-3">
 
-    <!-- Navigation Tabs -->
     <ul class="nav nav-tabs mb-3" id="dashTabs">
       <li class="nav-item">
         <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#gameTab">🎮 Gra & Kamera Live</button>
@@ -123,14 +125,13 @@
       <div class="tab-pane fade show active" id="gameTab">
         <div class="row">
 
-          <!-- Left Column: Camera / Calibration / Test Upload -->
           <div class="col-lg-6">
             <div class="card">
               <div class="card-header d-flex justify-content-between align-items-center">
                 <span>📹 Podgląd Kamery i Kalibracja Tarczy</span>
                 <div>
                   <button class="btn btn-sm btn-outline-warning" id="btnStartCamera">Start Kamera</button>
-                  <button class="btn btn-sm btn-outline-info" id="btnResetCalib">Reset Kalibracji</button>
+                  <button class="btn btn-sm btn-outline-info" id="btnResetCalib">Reset</button>
                 </div>
               </div>
               <div class="card-body text-center">
@@ -141,7 +142,8 @@
                 </div>
                 <div class="mt-3">
                   <button class="btn btn-success me-2" id="btnCaptureThrow">🎯 Wykryj Rzut (Klatka Po)</button>
-                  <button class="btn btn-secondary" id="btnCaptureBefore">📸 Ustaw Klatkę Odniesienia (Przed)</button>
+                  <button class="btn btn-secondary me-2" id="btnCaptureBefore">📸 Ustaw Klatkę Odniesienia (Przed)</button>
+                  <button class="btn btn-warning" id="btnAutoCalib">⚡ Auto-Kalibracja</button>
                 </div>
               </div>
             </div>
@@ -164,11 +166,10 @@
             </div>
           </div>
 
-          <!-- Right Column: Game State & Interactive Board -->
           <div class="col-lg-6">
             <div class="card">
               <div class="card-header d-flex justify-content-between align-items-center">
-                <span>🎮 Stan Gry X01</span>
+                <span>🎮 Stan Gry</span>
                 <button class="btn btn-sm btn-outline-success" data-bs-toggle="modal" data-bs-target="#newGameModal">Nowa Gra</button>
               </div>
               <div class="card-body">
@@ -196,7 +197,6 @@
               </div>
             </div>
 
-            <!-- Manual Throw input for testing -->
             <div class="card">
               <div class="card-header">🎯 Ręczne Wprowadzanie Wyniku</div>
               <div class="card-body">
@@ -219,11 +219,9 @@
         </div>
       </div>
 
-      <!-- TAB 2: Advanced Analytics & Vision Diagnostics -->
+      <!-- TAB 2: Analytics -->
       <div class="tab-pane fade" id="analyticsTab">
         <div class="row">
-
-          <!-- Key Metrics -->
           <div class="col-md-3 mb-3">
             <div class="stat-box">
               <div class="small fw-bold" style="color: #b0bec5;">Średnia Ogólna (3 Darts)</div>
@@ -248,11 +246,9 @@
               <div class="stat-value" id="statDrift">0.0 mm</div>
             </div>
           </div>
-
         </div>
 
         <div class="row">
-          <!-- Scoring Brackets Chart -->
           <div class="col-lg-6">
             <div class="card">
               <div class="card-header">📊 Rozkład Wyników Kolejek (Scoring Brackets)</div>
@@ -262,7 +258,6 @@
             </div>
           </div>
 
-          <!-- Heatmap Canvas Visualization -->
           <div class="col-lg-6">
             <div class="card">
               <div class="card-header">🔥 Mapa Ciepła i Rozrzut Rzutów (Scatter Coordinates)</div>
@@ -274,7 +269,6 @@
         </div>
 
         <div class="row">
-          <!-- Vision Engine Diagnostics -->
           <div class="col-lg-12">
             <div class="card">
               <div class="card-header">🔍 Diagnostyka Kamery i Wydajności Silnika Wizji</div>
@@ -319,14 +313,31 @@
         </div>
         <div class="modal-body">
           <div class="mb-3">
+            <label class="form-label">Tryb Gry:</label>
+            <select id="gameModeSelect" class="form-select">
+              <option value="x01" selected>X01 (501 / 301)</option>
+              <option value="cricket">Cricket</option>
+              <option value="around_the_clock">Around the Clock</option>
+            </select>
+          </div>
+          <div class="mb-3">
             <label class="form-label">Gracz 1:</label>
             <input type="text" id="player1Name" class="form-control" value="Gracz 1">
           </div>
-          <div class="mb-3">
-            <label class="form-label">Gracz 2 (Opcjonalnie):</label>
-            <input type="text" id="player2Name" class="form-control" value="Gracz 2">
+          <div class="form-check mb-3">
+            <input class="form-check-input" type="checkbox" id="chkIncludeBot">
+            <label class="form-check-label" for="chkIncludeBot">Graj z Botem AI (Komputer)</label>
           </div>
-          <div class="mb-3">
+          <div class="mb-3 d-none" id="botSkillGroup">
+            <label class="form-label">Poziom Bota AI:</label>
+            <select id="botSkillSelect" class="form-select">
+              <option value="beginner">Początkujący (Beginner)</option>
+              <option value="intermediate" selected>Średni (Intermediate)</option>
+              <option value="advanced">Zaawansowany (Advanced)</option>
+              <option value="pro">Ekspert / Pro (180 Machine)</option>
+            </select>
+          </div>
+          <div class="mb-3" id="x01ScoreGroup">
             <label class="form-label">Punkty początkowe:</label>
             <select id="targetScore" class="form-select">
               <option value="501" selected>501</option>
@@ -343,12 +354,30 @@
 
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
   <script>
+    let audioEnabled = true;
     let calibPoints = [];
     let video = document.getElementById('webcamVideo');
     let canvas = document.getElementById('calibCanvas');
     let ctx = canvas.getContext('2d');
     let ws = null;
     let bracketsChartInstance = null;
+
+    function speakText(text) {
+      if (!audioEnabled || !('speechSynthesis' in window)) return;
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.lang = 'en-US';
+      utterance.rate = 1.0;
+      window.speechSynthesis.speak(utterance);
+    }
+
+    document.getElementById('btnToggleAudio').addEventListener('click', () => {
+      audioEnabled = !audioEnabled;
+      document.getElementById('btnToggleAudio').innerText = audioEnabled ? "🔊 Lektor: WŁĄCZONY" : "🔇 Lektor: WYŁĄCZONY";
+    });
+
+    document.getElementById('chkIncludeBot').addEventListener('change', (e) => {
+      document.getElementById('botSkillGroup').classList.toggle('d-none', !e.target.checked);
+    });
 
     function initWebSocket() {
       const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
@@ -357,7 +386,7 @@
       ws.onmessage = (event) => {
         const data = JSON.parse(event.data);
         if (data.type === 'dart_detected') {
-          alert(`Wykryto rzut: ${data.score.name} (${data.score.value} pkt)`);
+          speakText(data.score.name);
           updateGameState(data.game_state);
         }
       };
@@ -469,6 +498,7 @@
       const resp = await fetch('/api/vision/process_images', { method: 'POST', body: formData });
       const res = await resp.json();
       if (res.detected) {
+        speakText(res.score.name);
         alert(`Wykryto rzut ze zdjęć: ${res.score.name} (${res.score.value} pkt)`);
         if (res.game_state) updateGameState(res.game_state);
       } else {
@@ -477,17 +507,24 @@
     });
 
     document.getElementById('btnStartGame').addEventListener('click', async () => {
+      const mode = document.getElementById('gameModeSelect').value;
       const p1 = document.getElementById('player1Name').value;
-      const p2 = document.getElementById('player2Name').value;
+      const includeBot = document.getElementById('chkIncludeBot').checked;
+      const botSkill = document.getElementById('botSkillSelect').value;
       const score = parseInt(document.getElementById('targetScore').value);
 
       const players = [p1];
-      if (p2.trim() !== '') players.push(p2);
 
       const resp = await fetch('/api/game/new', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ players: players, target_score: score })
+        body: JSON.stringify({
+          game_mode: mode,
+          players: players,
+          target_score: score,
+          include_bot: includeBot,
+          bot_skill: botSkill
+        })
       });
       const state = await resp.json();
       updateGameState(state);
@@ -508,6 +545,8 @@
         alert('Nieprawidłowy format rzutu! Przykłady: T20, D16, S5, 25, 50, 0');
         return;
       }
+
+      speakText(scoreObj.name);
 
       const resp = await fetch('/api/game/throw', {
         method: 'POST',
@@ -544,34 +583,42 @@
     }
 
     function updateGameState(state) {
-      if (!state || !state.players) return;
+      if (!state) return;
 
       const playersDiv = document.getElementById('playersList');
       playersDiv.innerHTML = '';
 
-      state.players.forEach((p, idx) => {
-        const isActive = idx === state.current_player_index;
-        const col = document.createElement('div');
-        col.className = 'col-6';
-        col.innerHTML = `
-          <div class="player-card ${isActive ? 'active' : ''}">
-            <h5>${p.name} ${isActive ? '🎯' : ''}</h5>
-            <div class="score-display">${p.current_score}</div>
-            <div class="small mt-2" style="color: #b0bec5;">
-              Średnia (3 rzuty): <strong>${p.average_3dart}</strong><br>
-              Legi: <strong>${p.legs_won}</strong> | Rzuty: <strong>${p.darts_thrown}</strong>
+      if (state.players) {
+        state.players.forEach((p, idx) => {
+          const isObj = typeof p === 'object';
+          const pName = isObj ? p.name : p;
+          const pScore = isObj ? p.current_score : (state.scores ? state.scores[pName] : (state.targets ? `Cel: ${state.targets[pName]}` : '-'));
+          const isActive = isObj ? (idx === state.current_player_index) : (pName === state.current_player);
+
+          const col = document.createElement('div');
+          col.className = 'col-6';
+          col.innerHTML = `
+            <div class="player-card ${isActive ? 'active' : ''}">
+              <h5>${pName} ${isActive ? '🎯' : ''}</h5>
+              <div class="score-display">${pScore}</div>
+              ${isObj ? `
+              <div class="small mt-2" style="color: #b0bec5;">
+                Średnia (3 rzuty): <strong>${p.average_3dart}</strong><br>
+                Legi: <strong>${p.legs_won}</strong> | Rzuty: <strong>${p.darts_thrown}</strong>
+              </div>` : ''}
             </div>
-          </div>
-        `;
-        playersDiv.appendChild(col);
-      });
+          `;
+          playersDiv.appendChild(col);
+        });
+      }
 
       document.getElementById('checkoutSuggest').innerText = state.checkout_recommendation || 'Brak (powyżej 170 lub nieparzyste)';
 
       const turnDartsDiv = document.getElementById('currentTurnDarts');
       turnDartsDiv.innerHTML = '';
+      const turnDarts = state.current_turn_darts || [];
       for (let i = 0; i < 3; i++) {
-        const dart = state.current_turn_darts[i];
+        const dart = turnDarts[i];
         const badge = document.createElement('span');
         badge.className = 'badge bg-secondary badge-turn';
         badge.innerText = dart ? dart.name : '-';
@@ -579,11 +626,11 @@
       }
 
       if (state.winner) {
+        speakText(`Winner is ${state.winner}`);
         alert(`🎉 ZWYCIĘZCA: ${state.winner}! Gratulacje!`);
       }
     }
 
-    // Load Analytics Tab Data
     async function loadAnalyticsData() {
       const statsResp = await fetch('/api/analytics/stats');
       const stats = await statsResp.json();
@@ -593,7 +640,6 @@
       document.getElementById('statCheckoutPct').innerText = `${stats.checkout_percentage}%`;
       document.getElementById('statDrift').innerText = `${stats.directional_bias_mm.grouping_radius_mm} mm`;
 
-      // Render Brackets Chart
       const ctxBrackets = document.getElementById('bracketsChart').getContext('2d');
       if (bracketsChartInstance) bracketsChartInstance.destroy();
       bracketsChartInstance = new Chart(ctxBrackets, {
@@ -619,14 +665,12 @@
         }
       });
 
-      // Render Heatmap / Scatter Canvas
       const heatmapResp = await fetch('/api/analytics/heatmap');
       const heatmapPts = await heatmapResp.json();
       const hCanvas = document.getElementById('heatmapCanvas');
       const hCtx = hCanvas.getContext('2d');
       hCtx.clearRect(0, 0, 300, 300);
 
-      // Draw Bull & Rings guide
       hCtx.strokeStyle = '#333';
       hCtx.beginPath();
       hCtx.arc(150, 150, 140, 0, 2 * Math.PI);
@@ -635,7 +679,6 @@
       hCtx.stroke();
 
       heatmapPts.forEach(pt => {
-        // Map canonical (-1 to 1) to canvas (0 to 300)
         const px = 150 + (pt.x * 140);
         const py = 150 - (pt.y * 140);
 
@@ -645,7 +688,6 @@
         hCtx.fill();
       });
 
-      // Vision Diagnostics
       const diagResp = await fetch('/api/analytics/diagnostics');
       const diag = await diagResp.json();
       document.getElementById('diagLatency').innerText = `${diag.avg_detection_latency_ms} ms`;
